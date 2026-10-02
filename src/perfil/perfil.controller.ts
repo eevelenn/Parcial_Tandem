@@ -2,6 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { PerfilService } from './perfil.service';
 import { CreatePerfilDto } from './dto/create-perfil.dto';
 import { UpdatePerfilDto } from './dto/update-perfil.dto';
+import { CreatePaisDto } from './pais/dto/create-pais.dto';
+import { CreateIdiomaDto } from './idioma/dto/create-idioma.dto';
 
 @Controller('perfil')
 export class PerfilController {

@@ -1,7 +1,7 @@
 import { Estado } from "../enums/estado.enum";
 import { IdiomaPersona } from "../idioma/entities/idioma-persona";
-import { Idioma } from "../idioma/entities/idioma.entity";
-import { Pais } from "./pais.entity";
+import { Pais } from "../pais/entities/pais.entity";
+import { PerfilPreferencia } from "./perfil-preferencia.entity";
 
 export class Persona {
     alias: string;
@@ -13,4 +13,6 @@ export class Persona {
     idiomasHablados: IdiomaPersona[];
     idiomasAprendiendo: IdiomaPersona[];
     tandem: boolean;
+    preferencia: PerfilPreferencia;
+    contactos: Persona[];
 }

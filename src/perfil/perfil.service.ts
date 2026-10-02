@@ -2,23 +2,25 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreatePerfilDto } from './dto/create-perfil.dto';
 import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { Persona } from './entities/persona.entity';
-import { Pais } from './entities/pais.entity';
 import { IdiomaPersona } from './idioma/entities/idioma-persona';
 import { Idioma } from './idioma/entities/idioma.entity';
 import { Nivel } from './enums/nivel.enum';
-import { contain } from 'supertest/lib/cookies';
+import { IdiomaService } from './idioma/idioma.service';
+import { Estado } from './enums/estado.enum';
+import { PaisService } from './pais/pais/pais.service';
 
 @Injectable()
 export class PerfilService {
   static perfiles: Persona[] = [];
   static alias: string[] = [];
 
+  constructor(private readonly paisService: PaisService, private readonly idiomaService: IdiomaService){}
+
   create(createPerfilDto: CreatePerfilDto) {
-    const newPais = new Pais;
-    newPais.nombre = "Argentina";
+    const pais = this.paisService.findOne(createPerfilDto.paisResidencia);
     
     const newPerfil = new Persona;
-    newPerfil.alias = "eve";
+    newPerfil.alias = createPerfilDto.alias;
     
     if (!PerfilService.alias.includes(newPerfil.alias)) {
       PerfilService.alias.push(newPerfil.alias);
@@ -26,44 +28,68 @@ export class PerfilService {
       console.log("Ya está usado el alias");
     }
 
-    newPerfil.nombre = "Evelyn";
-    newPerfil.apellido = "Cuellar";
-    newPerfil.email = "abc@gmail.com";
-    newPerfil.paisResidencia = newPais;
-
-    const idiomaHablado1 = new Idioma;
-    const idiomaHablado2 = new Idioma;
-    idiomaHablado1.nombre = "Español";
-    idiomaHablado1.abreviatura = "ES";
-    idiomaHablado2.nombre = "Chino";
-    idiomaHablado2.abreviatura = "CH";
-
-    const idiomaAprender = new Idioma;
-    idiomaAprender.nombre = "Aleman";
-    idiomaAprender.abreviatura = "AL";
+    newPerfil.nombre = createPerfilDto.nombre;
+    newPerfil.apellido = createPerfilDto.apellido;
+    newPerfil.email = createPerfilDto.email;
+    newPerfil.paisResidencia = pais;
+    newPerfil.estado = createPerfilDto.estado;
+    const estadoDelPerfil = this.verificarEstadoUsuario(newPerfil);
+    if (estadoDelPerfil){ //si devuelve true, es decir que no está suspendida, entonces permite la personalización de conversacion
+      newPerfil.preferencia.conversacion = createPerfilDto.preferencia.conversacion;
+      newPerfil.preferencia.conversacionActiva = createPerfilDto.preferencia.conversacionActiva;
+      newPerfil.preferencia.modo = createPerfilDto.preferencia.modo;
+    }
 
     const newIdioma1Persona = new IdiomaPersona;
-    newIdioma1Persona.idioma = idiomaHablado1; 
+    newIdioma1Persona.idioma = this.idiomaService.findOne(createPerfilDto.idiomasHablados[0]); 
     newIdioma1Persona.nivel = Nivel.A1;
     newIdioma1Persona.persona = newPerfil;
 
-    const newIdioma2Persona = new IdiomaPersona;
-    newIdioma2Persona.idioma = idiomaHablado2; 
-    newIdioma2Persona.nivel = Nivel.B2;
-    newIdioma2Persona.persona = newPerfil;
+    newPerfil.idiomasHablados.push(newIdioma1Persona);
 
+    const newIdiomaAprender = new IdiomaPersona;
+    newIdiomaAprender.idioma = this.idiomaService.findOne(createPerfilDto.idiomasAprendiendo[0]); 
+    newIdiomaAprender.nivel = Nivel.A2;
+    newIdiomaAprender.persona = newPerfil;
 
-    const idiomasHabladosPorUsuario = [newIdioma1Persona, newIdioma2Persona];
+    createPerfilDto.idiomasHablados.forEach((idIdioma) => {
+      const newIdioma1Persona = new IdiomaPersona;
+      newIdioma1Persona.idioma = this.idiomaService.findOne(idIdioma); 
+      newIdioma1Persona.nivel = Nivel.A1;
+      newIdioma1Persona.persona = newPerfil;
+
+      newPerfil.idiomasHablados.push(newIdioma1Persona);
+    })
     
-    const hay = idiomasHabladosPorUsuario.some((i) => i.idioma.abreviatura == idiomaAprender.abreviatura);
-    if (!hay) {
-      newPerfil.idiomasAprendiendo.push(idiomaAprender);
-      newPerfil.idiomasAprendiendo.nivel = Nivel.A1;
-      newPerfil.idiomasAprendiendo.persona = newPerfil;
+    const hay = newPerfil.idiomasHablados.some((i) => i.idioma.abreviatura == newIdiomaAprender.idioma.abreviatura);
+    if (
+      !hay //si no habla el idioma
+      && newPerfil.idiomasAprendiendo.length <= 3 //si esta aprendiendo tres o menos idiomas
+      && newPerfil.idiomasHablados.length >= 1 //si habla al menos un idioma
+      && IdiomaService.idiomas.some((i) => i.abreviatura == newIdiomaAprender.idioma.abreviatura) //si el idioma se encuentra dentro del catalogo
+    ) {
+      newIdiomaAprender.idioma = this.idiomaService.findOne(createPerfilDto.idiomasAprendiendo[0]); 
+      newIdiomaAprender.nivel = Nivel.A2;
+      newIdiomaAprender.persona = newPerfil;
+
+      newPerfil.idiomasAprendiendo.push(newIdiomaAprender);
+    }else{
+      console.log("No es posible. Elimina uno."); //lo eliminaria con la funcion de remove
     }
-   
     
     PerfilService.perfiles.push(newPerfil);
+  }
+
+  verificarEstadoUsuario(perfil: Persona){
+    let puede: boolean;
+    if (perfil.estado == Estado.SUSPENDIDA) {
+      perfil.contactos = []; //aca le defino que si está suspendido la lista de contactos
+      puede = false;
+    } else {
+      puede = true;
+    }
+
+    return puede;
   }
 
   findAll() {
