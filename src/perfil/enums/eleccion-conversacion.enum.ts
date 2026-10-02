@@ -1,0 +1,5 @@
+export enum EleccionConversacion {
+    CUALQUIERA = 'CUALQUIERA',
+    SOLO_PERSONAS_COMPATIBLES = 'SOLO_PERSONAS_COMPATIBLES',
+    NADIE = 'NADIE'
+}
